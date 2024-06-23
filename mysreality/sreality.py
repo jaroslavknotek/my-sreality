@@ -1,4 +1,3 @@
-import json
 from . import io
 import numpy as np
 import pathlib
@@ -69,12 +68,14 @@ def _parse_value(item):
 def parse_items(items):
     return {_parse_name(item):_parse_value(item) for item in items}
 
+def parse_estate_id(payload):
+    href = payload['_links']['self']['href']
+    return pathlib.Path(href).parts[-1]
 
 def payload_to_record(payload):
     data = parse_items(payload['items'])
     
-    href = payload['_links']['self']['href']
-    estate_id =  pathlib.Path(href).parts[-1]
+    estate_id = parse_estate_id(payload)
     data['estate_id'] = estate_id
     data['name'] = payload['locality']['value']
     data['gps_lat'],data['gps_lon'] = payload['map']['lat'],payload['map']['lon']

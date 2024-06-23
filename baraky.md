@@ -26,11 +26,19 @@ import datetime
 import logging
 logging.basicConfig()
 logger = logging.getLogger('mysreality')
-logger.setLevel(logging.Info)
+logger.setLevel(logging.INFO)
+
 ```
 
 ```python
+import pathlib
 
+payloads_dir = pathlib.Path('/home/jry/data/baraky/payloads')
+payloads_dir.mkdir(exist_ok=True,parents=True)
+
+```
+
+```python
 import mysreality.estate_reader as er
 
 query_params = {
@@ -45,14 +53,14 @@ query_params = {
     'category_type_cb': '1'
 }
 
-df = er.read_estates(query_params)
+df = er.read_estates(query_params,working_dir = payloads_dir)
 ```
 
 ```python
 df_close = df[df['commute_min'] < 75]
 df_close = df_close[df_close['state_score']>=4]
 df_close = df_close[df_close['Stavba']!='Dřevostavba ']
-df_close.plot.scatter(x='price',y='commute_min',c='state_score',cmap='plasma')
+df_close.plot.scatter(x='price',y='commute_min',c='state_score',cmap='plasma',alpha=.8)
 ```
 
 ```python
