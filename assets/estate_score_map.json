@@ -1,0 +1,11 @@
+{
+    "Novostavba":10,
+    "Velmi dobrý":9,
+    "Dobrý":8,
+    "Po rekonstrukci":7,
+    "Před rekonstrukcí":4, 
+    "V rekonstrukci":3,
+    "Ve výstavbě":2,
+    "Špatný":1, 
+    "Projekt":0
+}
