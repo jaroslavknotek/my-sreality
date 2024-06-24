@@ -15,6 +15,7 @@ def read_estate_ids_from_search(query_params,per_page=60,show_progress = False):
     count = count_res['result_size']
     
     estate_ids_list = []
+    prices_list = []
     pages = np.arange(np.ceil(count/per_page),dtype=int)
     if show_progress:
         pages = tqdm(pages,desc=f"Collecting {count} estates from pages")
@@ -24,15 +25,20 @@ def read_estate_ids_from_search(query_params,per_page=60,show_progress = False):
         qp['per_page']=per_page
         qp['page'] = i+1
         query = _to_query_string(qp)
-        
+
         query_uri=f'https://www.sreality.cz/api/cs/v2/estates?{query}'
         all_json = io.read_request(query_uri)
         estates = all_json['_embedded']['estates']
         estate_hrefs = [e['_links']['self']['href'] for e in estates]
         estate_ids = [int(pathlib.Path(e).parts[-1]) for e in estate_hrefs]
         estate_ids_list.append(estate_ids)
+
+        prices = [p['price_czk']['value_raw'] for p in estates]
+        prices_list.append(prices)
     
-    return sum(estate_ids_list,[])
+    e = np.concatenate(estate_ids_list)
+    p = np.concatenate(prices_list)
+    return {k:v for k,v in zip(e,p)}
 
 def _to_query_string(query_params):
     return '&'.join([f"{k}={v}"  for k,v in query_params.items()])
@@ -70,7 +76,7 @@ def parse_items(items):
 
 def parse_estate_id(payload):
     href = payload['_links']['self']['href']
-    return pathlib.Path(href).parts[-1]
+    return int(pathlib.Path(href).parts[-1])
 
 def payload_to_record(payload):
     data = parse_items(payload['items'])
