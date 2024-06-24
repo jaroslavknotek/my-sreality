@@ -2,3 +2,7 @@ geopy
 numpy
 tqdm
 pandas
+
+# vis 
+dash
+plotly
