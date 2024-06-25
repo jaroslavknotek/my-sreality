@@ -77,7 +77,7 @@ def parse_items(items):
 def parse_estate_id(payload):
     href = payload['_links']['self']['href']
     return int(pathlib.Path(href).parts[-1])
-
+    
 def payload_to_record(payload):
     data = parse_items(payload['items'])
     

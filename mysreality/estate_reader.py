@@ -9,19 +9,36 @@ import logging
 
 logger = logging.getLogger('mysreality')
 
+
+def filter_invalid(payloads):
+    valid = []
+    for p in payloads:
+        try:
+            _ = sreality.parse_estate_id(p)
+            valid.append(p)
+        except KeyError:
+            logger.debug("Invalid estate %s", p)
+    
+    return valid
+    
+def cache_payloads(payloads, working_dir):
+    for p in payloads:
+        object_id = sreality.parse_estate_id(p)
+        payload_path = working_dir/f"{object_id}.json"
+        io.save_json(payload_path,p)        
+    
 def read_estates(query, working_dir):
     payloads_old = []
     if working_dir:
         payloads_old = read_cached_payloads(working_dir)
 
     payloads_new = read_payloads(query,existing_payloads = payloads_old)
+    payloads_new = filter_invalid(payloads_new)
 
     if working_dir:
         logger.info("Saving new payloads")
-        for p in payloads_new:
-            object_id = sreality.parse_estate_id(p)
-            payload_path = working_dir/f"{object_id}.json"
-            io.save_json(payload_path,p)
+        cache_payloads(payloads_new,working_dir)
+        
     payloads = payloads_new + payloads_old
     
     df = to_dataframe(payloads)
