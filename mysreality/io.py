@@ -1,5 +1,6 @@
 import requests
 import json
+import pathlib
 
 import logging
 
@@ -15,10 +16,6 @@ def read_request(url,headers = None):
         }
     res = requests.get(url,headers =headers)
     return res.json()
-    
-def read_payload(estate_id,url_base):
-    url = url_base.format(estate_id)
-    return read_request(url)
 
 def save_json(path,data):
     with open(path,'w') as f:
@@ -27,4 +24,12 @@ def save_json(path,data):
 def load_json(path):
     with open(path,'r') as f:
         return json.load(f)
-    
+
+def download_image(image_uri,destination_path):
+    try:
+        pathlib.Path(destination_path).parent.mkdir(exist_ok=True,parents=True)
+        img_data = requests.get(image_uri).content
+        with open(destination_path, 'wb') as handler:
+            handler.write(img_data)
+    except Exception as e:
+        logger.warning("Image was not saved %s. Error: %s",image_uri,e)

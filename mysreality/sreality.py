@@ -5,9 +5,12 @@ from tqdm.auto import tqdm
 import logging
 import multiprocessing as mp
 
+from urllib.parse import urlparse
+
 logger = logging.getLogger('mysreality')
 estate_detail_url_template = "https://www.sreality.cz/api/cs/v2/estates/{}"
-
+   
+    
 def read_estate_ids_from_search(query_params,per_page=60,show_progress = False):
     
     count_uri = f"https://www.sreality.cz/api/cs/v2/estates?{_to_query_string(query_params)}"
@@ -19,15 +22,20 @@ def read_estate_ids_from_search(query_params,per_page=60,show_progress = False):
     pages = np.arange(np.ceil(count/per_page),dtype=int)
     if show_progress:
         pages = tqdm(pages,desc=f"Collecting {count} estates from pages")
-        
-    for i in pages:
+
+
+    uris = []
+    for page in pages:
         qp = query_params.copy()
         qp['per_page']=per_page
-        qp['page'] = i+1
+        qp['page'] = page+1
         query = _to_query_string(qp)
 
         query_uri=f'https://www.sreality.cz/api/cs/v2/estates?{query}'
-        all_json = io.read_request(query_uri)
+        uris.append(query_uri)
+
+    payloads = _paralel_requests(uris)
+    for all_json in payloads:
         estates = all_json['_embedded']['estates']
         estate_hrefs = [e['_links']['self']['href'] for e in estates]
         estate_ids = [int(pathlib.Path(e).parts[-1]) for e in estate_hrefs]
@@ -43,23 +51,28 @@ def read_estate_ids_from_search(query_params,per_page=60,show_progress = False):
 def _to_query_string(query_params):
     return '&'.join([f"{k}={v}"  for k,v in query_params.items()])
 
-def _collect_single_estate(estate_id):
+def _request_payload(url):
     payload = None
     try:
-        payload = io.read_payload(estate_id, estate_detail_url_template)
+        payload = io.read_request(url)
     except Exception as e:
-        logger.warning(f"Could not get estate {estate_id} due to error {e}")
+        logger.warning(f"Could not get estate {url} due to error {e}")
     return payload
 
 
-def collect_estates(estate_ids):
+def _paralel_requests(uris,desc=None):
     with mp.Pool() as pool:
         payloads = list(tqdm(
-            pool.imap(_collect_single_estate, estate_ids),
-            desc='collecting estates',
-            total = len(estate_ids)
+            pool.imap(_request_payload, uris),
+            desc=desc,
+            total = len(uris)
         ))
     return [p for p in payloads if p is not None]
+    
+
+def collect_estates(estate_ids):
+    uris = [ estate_detail_url_template.format(estate_id) for estate_id in estate_ids]
+    return _paralel_requests(uris,desc= 'collecting estates')
 
 def _parse_name(item):
     return item['name']
@@ -76,7 +89,7 @@ def parse_items(items):
 
 def parse_estate_id(payload):
     href = payload['_links']['self']['href']
-    return int(pathlib.Path(href).parts[-1])
+    return parse_estate_id_from_uri(href)
     
 def payload_to_record(payload):
     data = parse_items(payload['items'])
@@ -93,3 +106,12 @@ def payload_to_record(payload):
     data['price']=payload['price_czk']['value_raw']
     
     return data
+
+
+def parse_last_path_part(maybe_uri_text):
+    uri_text = str(maybe_uri_text)    
+    return urlparse(uri_text).path.split('/')[-1]
+    
+def parse_estate_id_from_uri(maybe_uri_text):
+    estate_id_text = parse_last_path_part(maybe_uri_text)
+    return int(estate_id_text)

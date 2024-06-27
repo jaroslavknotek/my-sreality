@@ -11,7 +11,7 @@ def scatter(df):
     color_range = np.linspace(0, 1, len(df["state_score"].unique()))
     colors = sample_colorscale("plasma", color_range)
     
-    fig = go.Figure()
+    fig = go.Figure(layout_title_text=f"Estates ({len(df)})")
     
     # Add a scatter trace for each unique state_score
     for score, color in zip(df["state_score"].unique(), colors):
@@ -32,7 +32,7 @@ def scatter(df):
     fig.update_layout(
         width=900,
         height=650,
-        margin={"l": 10, "b": 10, "t": 20, "r": 10}
+        margin={"l": 10, "b": 10, "t": 40, "r": 10}
     )
     app = Dash(__name__)
     @app.callback(Output("graph-id", "figure"), [Input("graph-id", "clickData")])

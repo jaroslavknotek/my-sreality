@@ -1,13 +1,11 @@
 {
     "Praha": {"gps": [50.0875, 14.421389], "trip_base_min": 0},
     "Beroun": {"gps": [49.964167, 14.073889], "trip_base_min": 40},
-    "Hořovice": {"gps": [49.836061, 13.902739], "trip_base_min": 64},
     "Stříbro": {"gps": [49.7529403, 13.0040925], "trip_base_min": 117},
     "Plzeň": {"gps": [49.7477831, 13.3783489], "trip_base_min": 87},
     "Nymburk": {"gps": [50.1860544, 15.0416711], "trip_base_min": 46},
     "Český Brod": {"gps": [50.0742022, 14.8608119], "trip_base_min": 49},
     "Lysá nad Labem": {"gps": [50.2014311, 14.8328117], "trip_base_min": 38},
-    "Rakovník": {"gps": [50.1037006, 13.7333989], "trip_base_min": 54},
     "Rokycany": {"gps": [49.7426981, 13.5945853], "trip_base_min": 80},
     "Kolín": {"gps": [50.0281361, 15.2005672], "trip_base_min": 38},
     "Čáslav": {"gps": [49.9109903, 15.3897178], "trip_base_min": 66},
