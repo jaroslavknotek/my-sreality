@@ -3,3 +3,6 @@ numpy
 tqdm
 pandas
 pickledb
+python-telegram-bot
+requests
+python-dotenv

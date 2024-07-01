@@ -11,3 +11,6 @@ def load_estate_score_map():
 
 def load_stations():
     return io.load_json(asset_root/'stations.json')
+
+def load_reactions_map():
+    return io.load_json(asset_root/'reactions_map.json')
