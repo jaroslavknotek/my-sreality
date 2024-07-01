@@ -14,5 +14,7 @@
     "Poděbrady": {"gps": [50.1424186, 15.118811], "trip_base_min": 54},
     "Hradec Králové": {"gps": [50.2092275, 15.8327683], "trip_base_min": 114},
     "Příbram": {"gps": [49.6898783, 14.0104247], "trip_base_min": 53},
-    "Kralupy nad Vltavou": {"gps":[50.241149, 14.311575],"trip_base_min": 34}
+    "Kralupy nad Vltavou": {"gps":[50.241149, 14.311575],"trip_base_min": 34},
+    "Chlumec nad Cydlinou":{"gps":[50.154454, 15.460335],"trip_base_min": 75},
+    "Roudnice nad Labem": {"gps":[50.425361, 14.261841],"trip_base_min":59}
 }

@@ -6,12 +6,14 @@ from dash import Dash, Input, Output, dcc
 from dash.exceptions import PreventUpdate
 from plotly.express.colors import sample_colorscale
 
-def scatter(df):
+def scatter(df,title = None):
     df = df.sort_values(by="state_score")
     color_range = np.linspace(0, 1, len(df["state_score"].unique()))
     colors = sample_colorscale("plasma", color_range)
     
-    fig = go.Figure(layout_title_text=f"Estates ({len(df)})")
+    if title is None:
+        title = f"Estates ({len(df)})"
+    fig = go.Figure(layout_title_text=title)
     
     # Add a scatter trace for each unique state_score
     for score, color in zip(df["state_score"].unique(), colors):

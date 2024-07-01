@@ -59,17 +59,15 @@ def cache_payloads(payloads, working_dir,images = True):
     for p in payloads:
         object_id = sreality.parse_estate_id(p)
         payload_path = working_dir/f"{object_id}.json"
-        p['mysreality'] = {"saved_timestamp":str(datetime.datetime.now())}
         io.save_json(payload_path,p)        
 
     if images:
         images_dir = working_dir/'images'
-        images_dir.mkdir(parents=True,exist_ok=True
-                        )
+        images_dir.mkdir(parents=True,exist_ok=True                        )
         download_images(payloads,images_dir)
         
     
-def read_estates(query, working_dir,images = True):
+def read_estates(query, working_dir,younger_than = None,images = True):
     payloads_old = []
     if working_dir:
         payloads_old = read_cached_payloads(working_dir)
@@ -83,12 +81,18 @@ def read_estates(query, working_dir,images = True):
         
     payloads = payloads_new + payloads_old
     
+    if younger_than:
+        ts_from = younger_than.strftime('%Y%m%d%H%M%S')
+        payloads = [ p for p in payloads if p.get('mysreality',{}).get('saved_timestamp',"9") >= ts_from]
+    
+    logger.info("Converting payloads to dataframe.")
     df = to_dataframe(payloads)
     df = fe.add_distance(df)
     df = fe.score_estates(df)
 
     df['id'] = df['estate_id']
     df = df.set_index('id')
+    df['Plocha pozemku'] = df['Plocha pozemku'].astype(int)
     return df
 
 
@@ -119,12 +123,18 @@ def read_payloads(query,existing_payloads= None):
     estate_ids = estates.keys()
     estate_ids = list(set(estate_ids) - set(excluded_ids))
     
-    return sreality.collect_estates(estate_ids)
+    payloads = sreality.collect_estates(estate_ids)
+    for p in payloads:
+        ts = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
+        p['mysreality'] = {"saved_timestamp":ts}
+
+    return payloads
     
 
 def to_dataframe(payloads):
     records = []
     for payload in payloads:
         record = sreality.payload_to_record(payload)
+        record['timestamp'] = payload.get('mysreality',{}).get('saved_timestamp','')
         records.append(record)
     return pd.DataFrame(records)

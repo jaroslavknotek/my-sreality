@@ -2,3 +2,4 @@ geopy
 numpy
 tqdm
 pandas
+pickledb

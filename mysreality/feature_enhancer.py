@@ -3,12 +3,13 @@ import geopy.distance
 import numpy as np
 import datetime
 
-from . import io
+from . import assets
 
 def add_distance(df,stations=None,coords_base = None,minutes_per_km = 2):
 
     if stations is None:
-        stations=io.load_json('assets/stations.json')
+        stations = assets.load_stations()
+        
             
     data_distances = []
     for _,row in df.iterrows():
@@ -77,7 +78,7 @@ def find_closest_way(coords_from,stations):
 
 def score_estates(df,score_map = None):
     if score_map is None:
-        score_map = io.load_json('assets/estate_score_map.json')
+        score_map = assets.load_estate_score_map()
         
     df['state_score'] = df['Stav objektu'].map(score_map)
     return df
