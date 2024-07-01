@@ -1,5 +1,5 @@
 import pickledb
-
+import pathlib
 import mysreality.assets as assets
 import mysreality.estate_reader as er
 import mysreality.sreality as sreality
@@ -26,8 +26,12 @@ def _intersect_ids(df,ids):
     
 class EstatesAPI():
     def __init__(self, reaction_db_path, working_dir,input_query_params = None):
+        reaction_db_path = pathlib.Path(reaction_db_path)
+        reaction_db_path.parent.mkdir(exist_ok=True,parents=True)
+        
         self.db = pickledb.load(reaction_db_path,auto_dump=True)
-        self.working_dir = working_dir
+        self.working_dir = pathlib.Path( working_dir)
+        self.working_dir.mkdir(exist_ok=True,parents=True)
         if input_query_params is None:
             input_query_params = assets.read_default_sreality_query()
         self.input_query_params = input_query_params

@@ -34,10 +34,7 @@ logger.setLevel(logging.INFO)
 import pathlib
 
 payloads_dir = pathlib.Path('/home/jry/data/baraky/payloads')
-payloads_dir.mkdir(exist_ok=True,parents=True)
-
 db_path = pathlib.Path('/tmp/test.db')
-db_path.parent.mkdir(exist_ok=True,parents=True)
 ```
 
 ```python
@@ -47,6 +44,7 @@ import mysreality.api as api
 estates_api = api.EstatesAPI(db_path,payloads_dir)
 
 long_ago = datetime.now() - timedelta(weeks=24000)
+
 df = estates_api.read_latest(date_from=long_ago)
 ```
 
@@ -56,6 +54,8 @@ len(df)
 
 ```python
 df_hour_ago = estates_api.read_latest(datetime.now() - timedelta(hours=10))
+
+
 len(df_hour_ago)
 ```
 
@@ -109,6 +109,10 @@ import mysreality.sreality as sreality
 commute_ids = _intersect_ids(df,commute_estate.keys())
 df.loc[commute_ids,['commute_min']] = [ commute_estate[cid] for cid in commute_ids]
 
+```
+
+```python
+df_hour_ago['link']
 ```
 
 ```python
@@ -304,7 +308,7 @@ for k,v in seen_state.items():
     for estate_link in v:
         if isinstance(estate_link,int):
             estate_id = sreality.parse_estate_id_from_uri(estate_link)
-            estate_row = df_orig.loc[estate_id]
+            estate_row = df.loc[estate_id]
             estate_link = estate_row['link']
         reaction_data = {'jry':k,'bebe':k}
         
@@ -317,7 +321,7 @@ for k,v in seen_state.items():
     for estate_link in v:
         if isinstance(estate_link,int):
             estate_id = sreality.parse_estate_id_from_uri(estate_link)
-            estate_row = df_orig.loc[estate_id]
+            estate_row = df.loc[estate_id]
             estate_link = estate_row['link']
             
         print(estates_api.read_reactions(estate_link))
