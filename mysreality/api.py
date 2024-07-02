@@ -68,7 +68,7 @@ class EstateWatcher():
             if can_run:
                 logger.info('Start reading df at %s',now)
                 df = self.estates_api.read_latest(last_ts)
-                if filter_fn:
+                if self.filter_fn:
                     df = self.filter_fn(df)
                     
                 for _,r in df.iterrows():
