@@ -35,7 +35,7 @@ def _get_distances_record(coords_from,stations,coords_base = None,minutes_per_km
         
     if coords_base is not None:
         distance_to_base = geopy.distance.geodesic(coords_from, coords_base)
-        data['distance_to_base_km'] = distance_to_base
+        data['distance_to_base_km'] = distance_to_base.km
 
     closest_station,distance_km,trip_to_base = find_closest_way(coords_from,stations)
 

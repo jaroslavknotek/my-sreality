@@ -176,7 +176,15 @@ if __name__ == "__main__":
         #df = df[df['is_southwest']]
         return df
 
-    estates_api = api.EstatesAPI(db_path,data_dir)
+    
+    # watcher = api.EstateWatcher(
+    #     estates_api,
+    #     filter_fn
+    # )
+    # estates_api = api.EstatesAPI(db_path,data_dir)
+    # watcher.watch() 
+    
+    
     long_ago = datetime.now() - timedelta(weeks=24000)
     # estates_api.read_latest(long_ago, images=False)
     params = Param(bot_token=bot_token,
@@ -187,4 +195,5 @@ if __name__ == "__main__":
                    cache_dir=cache_dir,
                    filter_fn =filter_df
                    )
+    
     run_bot(params)

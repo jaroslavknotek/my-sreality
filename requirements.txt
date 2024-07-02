@@ -3,6 +3,10 @@ numpy
 tqdm
 pandas
 pickledb
+<<<<<<< Updated upstream
 python-telegram-bot
 requests
 python-dotenv
+=======
+persist-queue
+>>>>>>> Stashed changes
