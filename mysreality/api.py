@@ -34,10 +34,12 @@ class EstateWatcher():
     def __init__(
         self, 
         estates_api,
+        *,
         interval = None,
         timestamp_path = None,
         queue_path = None,
         filter_fn = None,
+        download_images = True,
     ):
         queue_path = queue_path or "/tmp/estate_watcher/queue"
         self.queue = FIFOSQLiteQueue(path=queue_path, multithreading=True,auto_commit=True)
@@ -47,6 +49,7 @@ class EstateWatcher():
         self.timestamp_path.parent.mkdir(exist_ok=True,parents=True) 
         self.filter_fn = filter_fn
         self.stopping=False
+        self.download_images = download_images
 
     def stop(self,):
         self.stopping = True
@@ -67,7 +70,7 @@ class EstateWatcher():
             last_ts,can_run = self._can_run(now)
             if can_run:
                 logger.info('Start reading df at %s',now)
-                df = self.estates_api.read_latest(last_ts)
+                df = self.estates_api.read_latest(last_ts,images = sel.fdownload_images)
                 if self.filter_fn:
                     df = self.filter_fn(df)
                     
@@ -137,13 +140,14 @@ class EstatesAPI():
 
         with self.db_lock:
             reactions_ids = self.db.getall()
-            reactions = [self.db.get(uri) for uri in reactions_ids]
+            reactions = [ (uri,self.db.get(uri)) for uri in reactions_ids]
         
-        reactions = [ r for r in reactions if r]    
-        for v in reactions:
+        reactions = [ (uri,r) for uri,r in reactions if r]    
+        for uri,r in reactions:
+            
             estate_id = sreality.parse_estate_id_from_uri(uri)
             if estate_id in df.index:
-                value = '/'.join([f"{k}:{v}"for k,v in v.items()])
+                value = '/'.join([f"{k}:{v}"for k,v in r.items()])
                 df.loc[estate_id,'state_seen'] = value
         
         return df
