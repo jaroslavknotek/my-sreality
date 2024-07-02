@@ -36,11 +36,12 @@ class EstatesAPI():
             input_query_params = assets.read_default_sreality_query()
         self.input_query_params = input_query_params
         
-    def read_latest(self,date_from):
+    def read_latest(self,date_from, images=True):
         df = er.read_estates(
             self.input_query_params, 
             younger_than = date_from ,
-            working_dir = self.working_dir
+            working_dir = self.working_dir,
+            images=images
         )
 
         df['state_seen'] = None
