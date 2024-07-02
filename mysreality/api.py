@@ -15,19 +15,6 @@ import time
 import pathlib
 
 logger = logging.getLogger('mysreality')
-    
-def uri_to_id(uri):
-    if isinstance(uri,urllib.parse.ParseResult):
-        url_obj = uri
-    else:
-        url_obj = urllib.parse.urlparse(uri)
-        
-    return f"{url_obj.hostname}{url_obj.path}"
-
-def _intersect_ids(df,ids):
-    existing_ids = set(df['estate_id'])
-    return list(set(ids) & existing_ids)    
-
 
 class EstateWatcher():
     def __init__(
@@ -59,7 +46,7 @@ class EstateWatcher():
 
     def watch(self):
         t = Thread(target=self._worker)
-        logger.warning("Starting estetate watcher")
+        logger.info("Starting estate watcher")
         t.start()
 
     def _worker(self,):
@@ -97,15 +84,22 @@ class EstateWatcher():
             logger.warning("Reading timestamp failed: %s",e)
             return None
 
-    def read_new(self):
+    def pop(self):
+        try:
+            return self.queue.get(block=False)
+        except Empty:
+            return None
+        
+    def pop_all(self):
         items = []
-        while not self.stopping:
-            try:
-                item = self.queue.get(block=False)
-                items.append(json.loads(item))
-            except Empty:
-                break
+        item = self.pop()
+        while not self.stopping and item:
+            items.append(json.loads(item))
+            item = self.pop()    
         return items
+        
+    def size_of_new(self):
+        return self.queue.total
     
 class EstatesAPI():
     def __init__(
@@ -154,11 +148,9 @@ class EstatesAPI():
     def write_reaction(self,estate_uri,user,reaction):
         link_id = uri_to_id(estate_uri)
         with self.db_lock:
-            record = self.db.get(link_id)
-        if record:
-            record[user] = reaction
-        else:
-            record = {user:reaction}
+            record = self.db.get(link_id) or {}
+        
+        record[user] = reaction
         with self.db_lock:
             self.db.set(link_id,record)
         
@@ -166,4 +158,11 @@ class EstatesAPI():
         link_id = uri_to_id(estate_uri)
         with self.db_lock:
             return self.db.get(link_id)
+
+def uri_to_id(uri):
+    if isinstance(uri,urllib.parse.ParseResult):
+        url_obj = uri
+    else:
+        url_obj = urllib.parse.urlparse(uri)
         
+    return f"{url_obj.hostname}{url_obj.path}"
