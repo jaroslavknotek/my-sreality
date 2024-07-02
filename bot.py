@@ -6,7 +6,6 @@ from collections import Counter
 
 import pandas as pd
 import asyncio
-from mysreality import api
 from mysreality.assets import load_reactions_map
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import Application, CallbackQueryHandler, CommandHandler, ContextTypes

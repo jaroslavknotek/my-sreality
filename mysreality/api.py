@@ -1,5 +1,4 @@
 import pickledb
-import pathlib
 import mysreality.assets as assets
 import mysreality.estate_reader as er
 import mysreality.sreality as sreality
@@ -70,7 +69,7 @@ class EstateWatcher():
             last_ts,can_run = self._can_run(now)
             if can_run:
                 logger.info('Start reading df at %s',now)
-                df = self.estates_api.read_latest(last_ts,images = sel.fdownload_images)
+                df = self.estates_api.read_latest(last_ts,images = self.download_images)
                 if self.filter_fn:
                     df = self.filter_fn(df)
                     
