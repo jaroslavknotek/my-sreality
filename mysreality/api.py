@@ -86,7 +86,7 @@ class EstateWatcher():
 
     def pop(self):
         try:
-            return self.queue.get(block=False)
+            return json.loads(self.queue.get(block=False))
         except Empty:
             return None
         
@@ -94,7 +94,7 @@ class EstateWatcher():
         items = []
         item = self.pop()
         while not self.stopping and item:
-            items.append(json.loads(item))
+            items.append(item)
             item = self.pop()    
         return items
         
