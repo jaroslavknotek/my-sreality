@@ -67,7 +67,15 @@ def create_button(params):
             reaction_count_dict = {reaction: 0 for reaction in params.reactions.keys()}
             reaction_counter = Counter(link_reactions.values())
             reaction_count_dict.update(reaction_counter)
-            return reaction_count_dict
+            return  " ".join(
+            f"| {params.reactions[reaction]} {count} |"
+            for reaction, count in reaction_count_dict.items()
+            )
+        
+        def get_reactions_by_user(link_reactions):
+            link_reactions = dict(sorted(link_reactions.items()))
+            return "\n".join(f"{user}: {params.reactions[reaction]}"
+                      for user, reaction in link_reactions.items())
 
         query = update.callback_query
         await query.answer()
@@ -78,12 +86,11 @@ def create_button(params):
         params.estates_api.write_reaction(link, user, action)
         link_reactions = params.estates_api.read_reactions(link)
 
-        reaction_counts = " ".join(
-            f"| {params.reactions[reaction]} {count} |"
-            for reaction, count in get_reaction_counts(link_reactions).items()
-        )
+        # reactions = get_reaction_counts(link_reactions)
+        reactions = get_reactions_by_user(link_reactions)
+
         base_message_text = create_message_text(link, commute)
-        await query.edit_message_text(text=f"{base_message_text}\n{reaction_counts}",
+        await query.edit_message_text(text=f"{base_message_text}\n{reactions}",
                                       reply_markup=get_reaction_keys(link_id, params.reactions))
     return button
 
