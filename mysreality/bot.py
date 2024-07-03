@@ -4,8 +4,10 @@ import pathlib
 from collections import Counter
 
 from mysreality.sreality import parse_estate_id_from_uri
+import mysreality.assets as assets
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import Application, CallbackQueryHandler, CommandHandler, ContextTypes
+
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -104,14 +106,14 @@ class Param:
         bot_token,
         estates_api,
         watcher,
-        reactions_map,
+        reactions_map = None,
         interval = None,
 ) -> None:
         self.bot_token = bot_token
         self.interval = interval or 60 # seconds
         self.estates_api = estates_api
         self.watcher = watcher
-        self.reactions = reactions_map
+        self.reactions = reactions_map or assets.load_reactions_map()
 
 
 def create_bot(params) -> None:
