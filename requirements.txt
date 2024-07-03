@@ -3,3 +3,8 @@ numpy
 tqdm
 pandas
 pickledb
+python-telegram-bot
+python-telegram-bot[job-queue]
+requests
+python-dotenv
+persist-queue
