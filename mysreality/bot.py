@@ -13,7 +13,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-
 def get_reaction_keys(link, reactions):
     keyboard = [
             [InlineKeyboardButton(reactions[reaction], callback_data=f"{reaction}_{link}")
@@ -24,7 +23,11 @@ def get_reaction_keys(link, reactions):
 def create_start_auto_messaging(params):
     async def start_auto_messaging(update, context):
         chat_id = update.message.chat_id
-        await context.bot.send_message(chat_id=chat_id, text="Starting automatic messages!")
+        
+        queued_items = params.watcher.queue_total()
+        last_licking = params.watcher._read_ts()
+        message = f"Starting automatic messages! \nQueued items:{queued_items}\nLast licking: {last_licking}"
+        await context.bot.send_message(chat_id=chat_id, text=message)
         context.job_queue.run_repeating(create_send_links_cr(params, chat_id),
                                         params.interval,
                                         chat_id=chat_id, name=str(chat_id))
@@ -95,29 +98,23 @@ def create_button(params):
     return button
 
 
+
 class Param:
     def __init__(self,
-                bot_token,
-                interval,
-                estates_api,
-                reactions,
-                cache_dir,
-                filter_fn,
-                watcher,
-
-                ) -> None:
+        bot_token,
+        estates_api,
+        watcher,
+        reactions_map,
+        interval = None,
+) -> None:
         self.bot_token = bot_token
-        self.interval = interval
+        self.interval = interval or 60 # seconds
         self.estates_api = estates_api
-        self.reactions = reactions
-        cache_dir = pathlib.Path(cache_dir)
-        cache_dir.mkdir(parents=True, exist_ok=True)
-        self.ts_path = cache_dir/"ts.txt"
-        self.filter_fn = filter_fn
         self.watcher = watcher
+        self.reactions = reactions_map
 
 
-def run_bot(params) -> None:
+def create_bot(params) -> None:
     application = Application.builder().token(params.bot_token).build()
 
     application.add_handler(CommandHandler("send_links", create_send_links(params)))
@@ -125,4 +122,4 @@ def run_bot(params) -> None:
     application.add_handler(CommandHandler("stop", stop_notify))
     application.add_handler(CallbackQueryHandler(create_button(params)))
 
-    application.run_polling()
+    return application

@@ -5,11 +5,11 @@ jupyter:
       extension: .md
       format_name: markdown
       format_version: '1.3'
-      jupytext_version: 1.14.5
+      jupytext_version: 1.14.6
   kernelspec:
-    display_name: computer-vision
+    display_name: torch_cv
     language: python
-    name: .venv
+    name: torch_cv
 ---
 
 ```python
@@ -18,177 +18,74 @@ jupyter:
 ```
 
 ```python
-import numpy as np
-import datetime
-```
-
-```python
 import logging
 logging.basicConfig()
 logger = logging.getLogger('mysreality')
-
 logger.setLevel(logging.INFO)
+
 ```
 
 ```python
 import pathlib
+import numpy as np
 
-payloads_dir = pathlib.Path('/home/jry/data/baraky/payloads')
-db_path = pathlib.Path('/tmp/test.db')
-```
 
-```python
+root =pathlib.Path('/disk/knotek/baraky')
+payloads_dir = root/'payloads'
+db_path = root/'reactions.db'
+
 from datetime import  datetime,timedelta
 import mysreality.api as api
 
 estates_api = api.EstatesAPI(db_path,payloads_dir)
 
-long_ago = datetime.now() - timedelta(weeks=24000)
-
-df = estates_api.read_latest(date_from=long_ago)
+#df = estates_api.read_latest()
 ```
 
 ```python
-len(df)
-```
-
-```python
-df_hour_ago = estates_api.read_latest(datetime.now() - timedelta(hours=10))
-
-
-len(df_hour_ago)
-```
-
-```python
-class Pt:
-    def __init__(self,x,y):
-        self.x = x
-        self.y = y
-    
-def is_left(a1, a2, p):
-    a = Pt(*a1)
-    b = Pt(*a2)
-    c = Pt(*p)
-    
-    return (b.x - a.x)*(c.y - a.y) - (b.y - a.y)*(c.x - a.x) > 0
-
-lovosice = 50.515121, 14.051127
-havlickuv_brod = 49.607778, 15.580833 	
-
-lat =np.array(df['gps_lat'].fillna(0))
-lon = np.array(df['gps_lon'].fillna(0))
-df['is_southwest'] = [is_left(lovosice,havlickuv_brod,(la,lo)) for la,lo in zip(lat,lon)]
-```
-
-```python
-# co se s barakama da delat? spousta baraku ma divny dispozice
-
-commute_estate = {
-    4011673420:96,
-    3763160396:67,
-    3708253516:46,
-    2543215948:28,
-    4013721420:93,
-    3501958476:108,
-    802510156:100,
-    1809651020:96,
-    3553322316:79,
-    3284686156:72,
-    516121676:82,
-    3543795020:77,
-    2543215948:28,
-    3895301452:98,
-    4290012492:106,
-    1542939980:87,
-    812082508:108,
-    3031188812:86,    
-}
-
-import mysreality.sreality as sreality
-
-commute_ids = _intersect_ids(df,commute_estate.keys())
-df.loc[commute_ids,['commute_min']] = [ commute_estate[cid] for cid in commute_ids]
-
-```
-
-```python
-df_hour_ago['link']
-```
-
-```python
-import mysreality.visualization as visu
-
-#df = df_orig
-
-
 def filter_df(df):
-    df = df[df['price'] < 4500000]
-    df = df[df['commute_min'] < 90]
-    df = df[df['Plocha pozemku'] > 500]
-    df = df[(df['Stavba']!='Dřevostavba') &  (df['Stavba']!='Montovaná')]
-    df = df[df['state_score']>4]
-    df = df[df['state_seen'].isnull()] # not previously seen
-    #df = df[df['is_southwest']]
+    df = df[df["price"] < 4500000]
+    df = df[df["commute_min"] < 90]
+    df = df[df["Plocha pozemku"] > 500]
+    df = df[(df["Stavba"]!="Dřevostavba") &  (df["Stavba"]!="Montovaná")]
+    df = df[df["state_score"]>4]
+    df = df[df["state_seen"].isnull()] # not previously seen
+
     return df
 
-
-now = datetime.datetime.now() # - datetime.timedelta(hours=2)
-df_laters = _filter_later_than(df_orig,now)
-print("new", len(df_laters))
-
-app = visu.scatter(filter_df(df))
-app.run()
+dff = filter_df(df)
+print(len(dff))
+dff
 ```
 
 ```python
-assert False
-```
+dfx = df.loc[[812082508]]
 
-```python
-import mysreality.visualization as visu
+def fn(df):
+    df = df[df["price"] < 4500000]
+    print(len(df))
+    df = df[df["commute_min"] < 90]
+    print(len(df))
+    df = df[df["Plocha pozemku"] > 500]
+    print(len(df))
+    df = df[(df["Stavba"]!="Dřevostavba") &  (df["Stavba"]!="Montovaná")]
+    print(len(df))
+    df = df[df["state_score"]>4]
+    print(len(df))
+    df = df[df["state_seen"].isnull()] # not previously seen
+    print(len(df))
 
-df_stribro = df_orig
+    return df
 
-setup_state_seen(df_stribro,seen_state)
-df_stribro = df_stribro[df_stribro['price'] < 5000000]
-df_stribro = df_stribro[df_stribro['closest_station_km'] < 20]
-df_stribro = df_stribro[df_stribro['Plocha pozemku'] > 800]
-df_stribro = df_stribro[(df_stribro['closest_station_name'] == "Stříbro") | (df_stribro['closest_station_name'] == "Plzeň")]
-#df_stribro = df_stribro[(df_stribro['Stavba']!='Dřevostavba') &  (df_stribro['Stavba']!='Montovaná')]
-df_stribro = df_stribro[df_stribro['state_seen'].isnull()]
-
-app = visu.scatter(df_stribro,title="Stříbro")
-app.run()
-```
-
-```python
-# def _norm(arr):
-#     arr_min = np.min(arr)
-#     arr_max = np.max(arr)
-#     if arr_min == arr_max:
-#         return np.zeros_like(arr)
-#     return (arr -arr_min)/(arr_max-arr_min)
-
-# yy = _norm(df['commute_min'])
-# xx = _norm(df['price'])
-# cc = 1 - _norm(df['state_score'])
-# #cc =np.zeros_like(cc)
-
-# dists = np.sqrt(yy**2 + xx**2 + cc**2)
-# dist_idx = np.argsort(dists)
-# df_score_sorted = df.iloc[dist_idx]
-
-# import pandas as pd
-# pd.set_option('display.max_colwidth', None)
-
-# candidates = df_score_sorted[['price','commute_min','Stav objektu','estate_id','link','state_score','Stav','closest_station_name','closest_station_km','Voda','Odpad']]
-# candidates = candidates.fillna("")
-# candidates.head(30)
+fn(dfx)
 ```
 
 ```python
 import mysreality.sreality as sreality
+
 seen_state = {
+    "top":{
+    },
     "good":{
         3284686156,
         "https://www.sreality.cz/detail/prodej/dum/rodinny/prevysov-prevysov-/1542939980#fullscreen=true&img=18", # potrebuje zateplit
@@ -198,8 +95,6 @@ seen_state = {
         "https://www.sreality.cz/detail/prodej/dum/rodinny/mestec-kralove-novy-/2620195916#fullscreen=false&img=14",
         "https://www.sreality.cz/detail/prodej/dum/rodinny/mestec-kralove-novy-/590685516#fullscreen=false&img=7",
         "https://www.sreality.cz/detail/prodej/dum/rodinny/kozarovice-kozarovice-/734332236#fullscreen=false&img=5",
-    },
-    "not_bad": {
         1286919500,
         4183041356,
         2944996684,
@@ -233,9 +128,8 @@ seen_state = {
         "https://www.sreality.cz/detail/prodej/dum/rodinny/konarovice-konarovice-na-labuti/828929100#fullscreen=true&img=0",
         "https://www.sreality.cz/detail/prodej/dum/rodinny/zadni-treban-zadni-treban-pod-kvety/2543215948",
         "https://www.sreality.cz/detail/prodej/dum/rodinny/zbysov-klucke-chvalovice-/2820461900#fullscreen=false&img=13",
-        
     },
-    "not_interested":{
+    "nono":{
         272377164,
         1143579980,
         3763160396,
@@ -279,7 +173,7 @@ seen_state = {
         "https://www.sreality.cz/detail/prodej/dum/rodinny/krelovice-pakoslav-/33670476",
         "https://www.sreality.cz/detail/prodej/dum/rodinny/oselin-oselin-/3009041484#fullscreen=false",
     },
-    "misleading": {
+    "scam": {
         "https://www.sreality.cz/detail/prodej/dum/rodinny/vodranty-vodranty-/1436640588#fullscreen=false&img=18",
         'https://www.sreality.cz/detail/prodej/dum/rodinny/kralupy-nad-vltavou-kralupy-nad-vltavou-/3676112204',
         'https://www.sreality.cz/detail/prodej/dum/rodinny/rabyne-blazenice-/4278625612',
@@ -299,6 +193,7 @@ seen_state = {
         "https://www.sreality.cz/detail/prodej/dum/rodinny/cervene-pecky-opatovice-/1478481228",
         "https://www.sreality.cz/detail/prodej/dum/rodinny/cervene-pecky-opatovice-/1951016268",
         "https://www.sreality.cz/detail/prodej/dum/rodinny/maly-ujezd-jelenice-/1844299084#fullscreen=false&img=4",
+        "https://www.sreality.cz/detail/prodej/dum/rodinny/krnany-trebsin-/4011673420",
     }
 }
 
@@ -308,8 +203,11 @@ for k,v in seen_state.items():
     for estate_link in v:
         if isinstance(estate_link,int):
             estate_id = sreality.parse_estate_id_from_uri(estate_link)
-            estate_row = df.loc[estate_id]
-            estate_link = estate_row['link']
+            if estate_id in df.index:
+                estate_row = df.loc[estate_id]
+                estate_link = estate_row['link']
+            else:
+                continue
         reaction_data = {'jry':k,'bebe':k}
         
         estates_api.write_reaction(estate_link,'jarlando',k)
@@ -321,12 +219,11 @@ for k,v in seen_state.items():
     for estate_link in v:
         if isinstance(estate_link,int):
             estate_id = sreality.parse_estate_id_from_uri(estate_link)
-            estate_row = df.loc[estate_id]
-            estate_link = estate_row['link']
+            if estate_id in df.index:
+                estate_row = df.loc[estate_id]
+                estate_link = estate_row['link']
+            else:
+                continue
             
-        print(estates_api.read_reactions(estate_link))
-```
-
-```python
-
+        #print(estates_api.read_reactions(estate_link))
 ```

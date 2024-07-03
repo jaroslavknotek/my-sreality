@@ -22,16 +22,19 @@ class EstateWatcher():
         estates_api,
         *,
         interval = None,
+        estate_path = '/tmp/estate_watcher',
         timestamp_path = None,
         queue_path = None,
         filter_fn = None,
         download_images = True,
     ):
-        queue_path = queue_path or "/tmp/estate_watcher/queue"
+        estate_path = pathlib.Path(estate_path)
+        queue_path = queue_path or estate_path/"queue"
         self.queue = FIFOSQLiteQueue(path=queue_path, multithreading=True,auto_commit=True)
         self.estates_api = estates_api
         self.interval = interval or datetime.timedelta(minutes=30)
-        self.timestamp_path = pathlib.Path(timestamp_path or '/tmp/estate_watcher/timestamp.txt')
+        self.timestamp_path = pathlib.Path(timestamp_path or estate_path/'timestamp.txt')
+        
         self.timestamp_path.parent.mkdir(exist_ok=True,parents=True) 
         self.filter_fn = filter_fn
         self.stopping=False
@@ -49,23 +52,24 @@ class EstateWatcher():
         logger.info("Starting estate watcher")
         t.start()
 
+    def sync(self,):
+        now = datetime.datetime.now()
+        last_ts,can_run = self._can_run(now)
+        if can_run:
+            logger.info('Start reading df at %s',now)
+            df = self.estates_api.read_latest(last_ts,images = self.download_images)
+            if self.filter_fn:
+                df = self.filter_fn(df)
+
+            for _,r in df.iterrows():
+                self.queue.put(r.to_json())
+
+            logger.info('Putting %d records to logs',len(df))
+            self._update_ts(now)
+    
     def _worker(self,):
-        
         while not self.stopping:
-            now = datetime.datetime.now()
-            last_ts,can_run = self._can_run(now)
-            if can_run:
-                logger.info('Start reading df at %s',now)
-                df = self.estates_api.read_latest(last_ts,images = self.download_images)
-                if self.filter_fn:
-                    df = self.filter_fn(df)
-                    
-                for _,r in df.iterrows():
-                    self.queue.put(r.to_json())
-                    
-                logger.info('Putting %d records to logs',len(df))
-                self._update_ts(now)
-                
+            self.sync()
             time.sleep(1)
 
     def _update_ts(self,ts):
@@ -98,7 +102,7 @@ class EstateWatcher():
             item = self.pop()    
         return items
         
-    def size_of_new(self):
+    def queue_total(self):
         return self.queue.total
     
 class EstatesAPI():
