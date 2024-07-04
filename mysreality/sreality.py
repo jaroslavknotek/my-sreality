@@ -6,6 +6,7 @@ import logging
 import multiprocessing as mp
 
 from urllib.parse import urlparse
+import mysreality.utils as utils
 
 logger = logging.getLogger("mysreality")
 estate_detail_url_template = "https://www.sreality.cz/api/cs/v2/estates/{}"
@@ -62,11 +63,8 @@ def _request_payload(url):
     return payload
 
 
-def _paralel_requests(uris, desc=None):
-    with mp.Pool() as pool:
-        payloads = list(
-            tqdm(pool.imap(_request_payload, uris), desc=desc, total=len(uris))
-        )
+def _paralel_requests(uris, desc=None, progress=True):
+    payloads = utils.parallel(_request_payload, uris, desc=desc, progress=progress)
     return [p for p in payloads if p is not None]
 
 

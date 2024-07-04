@@ -16,5 +16,15 @@
     "Příbram": {"gps": [49.6898783, 14.0104247], "trip_base_min": 53},
     "Kralupy nad Vltavou": {"gps":[50.241149, 14.311575],"trip_base_min": 34},
     "Chlumec nad Cydlinou":{"gps":[50.154454, 15.460335],"trip_base_min": 75},
-    "Roudnice nad Labem": {"gps":[50.425361, 14.261841],"trip_base_min":59}
+    "Roudnice nad Labem": {"gps":[50.425361, 14.261841],"trip_base_min":59},
+    "Tábor": {"gps":[49.414444, 14.657778],"trip_base_min":59},
+    "Olbramovice": {"gps":[49.667291, 14.639486],"trip_base_min":52},
+    "Veseli nad Lužnicí": {"gps":[49.184369, 14.697356],"trip_base_min":93},
+    "Železný Brod": {"gps":[50.642794, 15.254179],"trip_base_min":129},
+    "Světlá nad Sázavou": {"gps":[49.668062, 15.403979],"trip_base_min":96},
+    "Lochovice": {"gps":[49.853268, 13.981323],"trip_base_min":72},
+    "Jince": {"gps":[49.786389, 13.978611],"trip_base_min":81},
+    "Havlíčkův Brod": {"gps":[ 49.6079, 15.580728],"trip_base_min":91},
+    "Přelouč": {"gps":[ 50.039897, 15.560373],"trip_base_min":54},
+    "Všetaty": {"gps":[ 50.281944, 14.593056],"trip_base_min":40}
 }

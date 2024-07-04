@@ -4,25 +4,20 @@ from collections import Counter
 
 from mysreality.sreality import parse_estate_id_from_uri
 import mysreality.assets as assets
+
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import Application, CallbackQueryHandler, CommandHandler, ContextTypes
 
-
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
-)
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("mysreality.telegram_bot")
 
 
 def get_reaction_keys(link, reactions):
-    keyboard = [
-        [
-            InlineKeyboardButton(
-                reactions[reaction], callback_data=f"{reaction}_{link}"
-            )
-            for reaction in reactions.keys()
-        ]
+    buttons = [
+        InlineKeyboardButton(emoji, callback_data=f"{reaction}_{link}")
+        for reaction, emoji in reactions.items()
     ]
+
+    keyboard = [buttons]
     return InlineKeyboardMarkup(keyboard)
 
 
@@ -30,9 +25,9 @@ def create_start_auto_messaging(params):
     async def start_auto_messaging(update, context):
         chat_id = update.message.chat_id
 
-        queued_items = params.watcher.queue_total()
-        last_licking = params.watcher._read_ts()
-        message = f"Starting automatic messages! \nQueued items:{queued_items}\nLast licking: {last_licking}"
+        queued_items = params.queue.total()
+        message = f"Starting automatic messages! \nQueued items:{queued_items}"
+
         await context.bot.send_message(chat_id=chat_id, text=message)
         context.job_queue.run_repeating(
             create_send_links_cr(params, chat_id),
@@ -54,17 +49,21 @@ async def stop_notify(update, context):
 
 def create_send_links_cr(params, chat_id):
     async def send_links_cr(context):
-        advert = params.watcher.pop()
+        try:
+            advert = params.queue.pop()
 
-        if advert:
-            link, commute = advert["link"], advert["commute_min"]
+            if not advert:
+                return
+
+            link = advert["link"]
             logger.debug(f"Trying {link}")
             buttons = get_reaction_keys(
                 parse_estate_id_from_uri(link), params.reactions
             )
-            base_message_text = create_message_text(
-                link, commute, note="Commute [min]: "
-            )
+            commute_min = advert["commute_min"]
+            station = advert["closest_station_name"]
+            km = advert["closest_station_km"]
+            base_message_text = f"{link}\n{commute_min=:.0f}. From:{station}({km=:.0f})"
 
             await context.bot.send_message(
                 chat_id=chat_id, text=base_message_text, reply_markup=buttons
@@ -72,11 +71,10 @@ def create_send_links_cr(params, chat_id):
             logger.debug(f"Sent {link}")
             await asyncio.sleep(1)
 
+        except Exception as e:
+            logger.exception("Job send links failed")
+
     return send_links_cr
-
-
-def create_message_text(link, commute, note=""):
-    return f"{link}\n{note}{commute}"
 
 
 def create_send_links(params):
@@ -89,15 +87,6 @@ def create_send_links(params):
 
 def create_button(params):
     async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        def get_reaction_counts(link_reactions):
-            reaction_count_dict = {reaction: 0 for reaction in params.reactions.keys()}
-            reaction_counter = Counter(link_reactions.values())
-            reaction_count_dict.update(reaction_counter)
-            return " ".join(
-                f"| {params.reactions[reaction]} {count} |"
-                for reaction, count in reaction_count_dict.items()
-            )
-
         def get_reactions_by_user(link_reactions):
             link_reactions = dict(sorted(link_reactions.items()))
             return "\n".join(
@@ -107,17 +96,18 @@ def create_button(params):
 
         query = update.callback_query
         await query.answer()
-        link, commute = query.message.text.split("\n")[:2]
+        link, msg_text = query.message.text.split("\n")[:2]
 
-        action, link_id = query.data.split("_")
+        reaction, link_id = query.data.split("_")
         user = query.from_user.username
-        params.estates_api.write_reaction(link, user, action)
-        link_reactions = params.estates_api.read_reactions(link)
 
-        # reactions = get_reaction_counts(link_reactions)
-        reactions = get_reactions_by_user(link_reactions)
+        estate_id = parse_estate_id_from_uri(link)
+        params.reactions_db.write(estate_id, user, reaction)
+        link_reactions = params.reactions_db.read_by_estate(estate_id)
+        reactions_dict = {r.username: r.reaction for r in link_reactions}
+        reactions = get_reactions_by_user(reactions_dict)
 
-        base_message_text = create_message_text(link, commute)
+        base_message_text = f"{link}\n{msg_text}"
         await query.edit_message_text(
             text=f"{base_message_text}\n{reactions}",
             reply_markup=get_reaction_keys(link_id, params.reactions),
@@ -130,16 +120,16 @@ class Param:
     def __init__(
         self,
         bot_token,
-        estates_api,
-        watcher,
+        reactions_db,
+        queue,
         reactions_map=None,
         interval=None,
     ) -> None:
         self.bot_token = bot_token
         self.interval = interval or 60  # seconds
-        self.estates_api = estates_api
-        self.watcher = watcher
-        self.reactions = reactions_map or assets.load_reactions_map()
+        self.reactions_db = reactions_db
+        self.queue = queue
+        self.reactions = reactions_map
 
 
 def create_bot(params) -> None:
