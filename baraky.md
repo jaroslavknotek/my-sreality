@@ -45,6 +45,10 @@ df = estates_api.read()
 ```
 
 ```python
+datetime.fromtimestamp(1720110529.160617)
+```
+
+```python
 import mysreality.visualization as visu
 
 def filter_df(df):
@@ -59,5 +63,9 @@ def filter_df(df):
 
     return df
 
-len(filter_df(df))
+filter_df(df)
+```
+
+```python
+
 ```

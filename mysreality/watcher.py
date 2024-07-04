@@ -58,10 +58,11 @@ class EstateWatcher:
                 if self.filter_fn:
                     df = self.filter_fn(df)
 
+                logger.info("Putting %d records to queue", len(df))
                 for _, r in df.iterrows():
                     self.queue.put(r.to_dict())
 
-                logger.info("Putting %d records to logs", len(df))
+                logger.info("Writing Timestamp %s", now)
                 self.timestamper.update(now)
         except (KeyboardInterrupt, SystemExit):
             logger.info("Shutting down the watcher")

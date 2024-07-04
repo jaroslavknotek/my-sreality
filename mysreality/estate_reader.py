@@ -126,13 +126,18 @@ def collect_img_uris_img_paths(payloads, images_dir):
 
 
 def read_payloads_summary(payloads):
-    return {sreality.parse_estate_id(p): p["price_czk"]["value_raw"] for p in payloads}
+    return {
+        sreality.parse_estate_id(p): p.get("price_czk", {}).get("value_raw", None)
+        for p in payloads
+    }
 
 
 def to_dataframe(payloads):
     records = []
     for payload in payloads:
         record = sreality.payload_to_record(payload)
+        if record is None:
+            continue
         ts = payload.get("mysreality", {}).get("saved_timestamp", "")
         record["timestamp"] = ts
         records.append(record)
