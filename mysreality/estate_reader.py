@@ -2,10 +2,12 @@ import pandas as pd
 
 from tqdm.auto import tqdm
 import multiprocessing as mp
-
+from . import assets
+from . import db
 from . import io
 from . import sreality
 from . import feature_enhancer as fe
+from . import utils
 import pathlib
 
 import logging
@@ -19,22 +21,86 @@ class DummyDfWrapper(pd.DataFrame):
         super().__init__(*args, **kwargs)
 
     def __getitem__(self, key):
-        if key not in self.columns:
+        if isinstance(key, str) and key not in self.columns:
+            # create column
             self[key] = None
 
-        return super().__getitem__(key)
+        ret = super().__getitem__(key)
+        if isinstance(ret, pd.DataFrame):
+            return DummyDfWrapper(columns=self.columns)
+        else:
+            return ret
 
 
-def filter_invalid(payloads):
-    valid = []
-    for p in payloads:
-        try:
-            _ = sreality.parse_estate_id(p)
-            valid.append(p)
-        except KeyError:
-            logger.debug("Invalid estate %s", p)
+class EstateReader:
+    def __init__(
+        self,
+        estates_data_path,
+        input_query_params=None,
+        download_images=True,
+        notify_progress=True,
+    ):
+        if input_query_params is None:
+            input_query_params = assets.read_default_sreality_query()
 
-    return valid
+        estates_data_path = pathlib.Path(estates_data_path)
+        self.input_query_params = input_query_params
+        self.estates_db = db.EstatesDb(estates_data_path)
+        self.download_images = download_images
+        self.images_dir = estates_data_path / "images"
+        self.images_dir.mkdir(parents=True, exist_ok=True)
+        self.notify_progress = notify_progress
+
+    def read(self, younger_than=None):
+        payloads_old = self.estates_db.read_all()
+        payloads_new = self.sync_new(existing=payloads_old)
+
+        payloads = payloads_new + payloads_old
+        if younger_than:
+            ts_from = younger_than.strftime("%Y%m%d%H%M%S")
+            payloads = [
+                p
+                for p in payloads
+                if p.get("mysreality", {}).get("saved_timestamp", "9") >= ts_from
+            ]
+
+        if len(payloads) == 0:
+            return DummyDfWrapper()
+
+        logger.info("Converting payloads to dataframe.")
+        df = to_dataframe(payloads)
+        df = fe.add_distance(df)
+        df = fe.score_estates(df)
+
+        df["id"] = df["estate_id"]
+        df = df.set_index("id")
+        df["Plocha pozemku"] = df["Plocha pozemku"].astype(int)
+        return df
+
+    def sync_new(self, existing=None):
+        payloads = read_payloads(self.input_query_params, existing_payloads=existing)
+        payloads = filter_invalid(payloads)
+        self.cache_payloads(payloads)
+        return payloads
+
+    def cache_payloads(self, payloads):
+        logger.info("Saving new payloads")
+        for p in payloads:
+            self.estates_db.write(p)
+
+        if self.download_images:
+            download_images(payloads, self.images_dir, progress=self.notify_progress)
+
+
+def _di(args):
+    return io.download_image(*args)
+
+
+def download_images(payloads, images_dir, desc="Downloading images", progress=True):
+    img_uris, img_paths = collect_img_uris_img_paths(payloads, images_dir)
+
+    args = list(zip(img_uris, img_paths))
+    _ = utils.parallel(_di, args, desc=desc, progress=progress)
 
 
 def collect_img_uris_img_paths(payloads, images_dir):
@@ -59,83 +125,35 @@ def collect_img_uris_img_paths(payloads, images_dir):
     return sum(all_img_uris, []), sum(all_img_paths, [])
 
 
-def di_wrapper(args):
-    return io.download_image(*args)
-
-
-def download_images(payloads, images_dir, desc="Downloading images"):
-    img_uris, img_paths = collect_img_uris_img_paths(payloads, images_dir)
-
-    with mp.Pool() as pool:
-        _ = list(
-            tqdm(
-                pool.imap(di_wrapper, zip(img_uris, img_paths)),
-                desc=desc,
-                total=len(img_uris),
-            )
-        )
-
-
-def cache_payloads(payloads, working_dir, images=True):
-    for p in payloads:
-        object_id = sreality.parse_estate_id(p)
-        payload_path = working_dir / f"{object_id}.json"
-        io.save_json(payload_path, p)
-
-    if images:
-        images_dir = working_dir / "images"
-        images_dir.mkdir(parents=True, exist_ok=True)
-        download_images(payloads, images_dir)
-
-
-def read_estates(query, working_dir, younger_than=None, images=True):
-    payloads_old = []
-    if working_dir:
-        payloads_old = read_cached_payloads(working_dir)
-
-    payloads_new = read_payloads(query, existing_payloads=payloads_old)
-    payloads_new = filter_invalid(payloads_new)
-
-    if working_dir:
-        logger.info("Saving new payloads")
-        cache_payloads(payloads_new, working_dir, images=images)
-
-    payloads = payloads_new + payloads_old
-    if younger_than:
-        ts_from = younger_than.strftime("%Y%m%d%H%M%S")
-        payloads = [
-            p
-            for p in payloads
-            if p.get("mysreality", {}).get("saved_timestamp", "9") >= ts_from
-        ]
-
-    if len(payloads) == 0:
-        return DummyDfWrapper()
-
-    logger.info("Converting payloads to dataframe.")
-    df = to_dataframe(payloads)
-    df = fe.add_distance(df)
-    df = fe.score_estates(df)
-
-    df["id"] = df["estate_id"]
-    df = df.set_index("id")
-    df["Plocha pozemku"] = df["Plocha pozemku"].astype(int)
-    return df
-
-
-def read_cached_payloads(payloads_dir):
-    payloads_dir = pathlib.Path(payloads_dir)
-    payloads_paths = list(payloads_dir.glob("*.json"))
-    return [io.load_json(p) for p in payloads_paths]
-
-
 def read_payloads_summary(payloads):
     return {
-        int(pathlib.Path(p["_links"]["self"]["href"]).parts[-1]): p["price_czk"][
-            "value_raw"
-        ]
+        sreality.parse_estate_id(p): p.get("price_czk", {}).get("value_raw", None)
         for p in payloads
     }
+
+
+def to_dataframe(payloads):
+    records = []
+    for payload in payloads:
+        record = sreality.payload_to_record(payload)
+        if record is None:
+            continue
+        ts = payload.get("mysreality", {}).get("saved_timestamp", "")
+        record["timestamp"] = ts
+        records.append(record)
+    return pd.DataFrame(records)
+
+
+def filter_invalid(payloads):
+    valid = []
+    for p in payloads:
+        try:
+            _ = sreality.parse_estate_id(p)
+            valid.append(p)
+        except KeyError:
+            logger.debug("Invalid estate %s", p)
+
+    return valid
 
 
 def read_payloads(query, existing_payloads=None):
@@ -160,12 +178,3 @@ def read_payloads(query, existing_payloads=None):
         p["mysreality"] = {"saved_timestamp": ts}
 
     return payloads
-
-
-def to_dataframe(payloads):
-    records = []
-    for payload in payloads:
-        record = sreality.payload_to_record(payload)
-        record["timestamp"] = payload.get("mysreality", {}).get("saved_timestamp", "")
-        records.append(record)
-    return pd.DataFrame(records)

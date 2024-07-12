@@ -19,6 +19,30 @@ def read_request(url, headers=None):
     return res.json()
 
 
+def _try_load(fn, filepath, default):
+    filepath = pathlib.Path(filepath)
+    if not filepath.exists():
+        return default
+
+    try:
+        return fn(filepath)
+    except FileNotFoundError:
+        # possible race condition, doesn't matter
+        logging.debug("File is gone even though it existed. %s", filepath)
+    except Exception:
+        logger.exception("reading file failed %s", filename)
+
+    return default
+
+
+def try_read_text(filepath, default=None):
+    return _try_load(lambda fp: fp.read_text(), filepath, default)
+
+
+def try_load_json(filepath, default=None):
+    return _try_load(load_json, filepath, default)
+
+
 def save_json(path, data):
     with open(path, "w") as f:
         json.dump(data, f)

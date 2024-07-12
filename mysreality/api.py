@@ -4,176 +4,54 @@ import mysreality.estate_reader as er
 import mysreality.sreality as sreality
 import urllib.parse
 import logging
-
+import mysreality.db as db
 from persistqueue import Empty
 import datetime
 from persistqueue import FIFOSQLiteQueue
 from threading import Thread, Lock
 import json
 
+import pandas as pd
 import time
 import pathlib
 
 logger = logging.getLogger("mysreality")
 
 
-class EstateWatcher:
-    def __init__(
-        self,
-        estates_api,
-        *,
-        interval=None,
-        estate_path="/tmp/estate_watcher",
-        timestamp_path=None,
-        queue_path=None,
-        filter_fn=None,
-        download_images=True,
-    ):
-        estate_path = pathlib.Path(estate_path)
-        queue_path = queue_path or estate_path / "queue"
-        self.queue = FIFOSQLiteQueue(
-            path=queue_path, multithreading=True, auto_commit=True
-        )
-        self.estates_api = estates_api
-        self.interval = interval or datetime.timedelta(minutes=30)
-        self.timestamp_path = pathlib.Path(
-            timestamp_path or estate_path / "timestamp.txt"
-        )
-
-        self.timestamp_path.parent.mkdir(exist_ok=True, parents=True)
-        self.filter_fn = filter_fn
-        self.stopping = False
-        self.download_images = download_images
-
-    def stop(
-        self,
-    ):
-        self.stopping = True
-
-    def _can_run(self, timestamp):
-        last_ts = self._read_ts() or datetime.datetime.fromtimestamp(1)
-        return last_ts, (timestamp - last_ts) > self.interval
-
-    def watch(self):
-        t = Thread(target=self._worker)
-        logger.info("Starting estate watcher")
-        t.start()
-
-    def sync(
-        self,
-    ):
-        now = datetime.datetime.now()
-        last_ts, can_run = self._can_run(now)
-        if can_run:
-            logger.info("Start reading df at %s", now)
-            df = self.estates_api.read_latest(last_ts, images=self.download_images)
-            if self.filter_fn:
-                df = self.filter_fn(df)
-
-            for _, r in df.iterrows():
-                self.queue.put(r.to_json())
-
-            logger.info("Putting %d records to logs", len(df))
-            self._update_ts(now)
-
-    def _worker(
-        self,
-    ):
-        while not self.stopping:
-            self.sync()
-            time.sleep(1)
-
-    def _update_ts(self, ts):
-        try:
-            with open(self.timestamp_path, "w") as f:
-                f.write(str(ts.timestamp()))
-        except Exception as e:
-            logger.warning("Writing timestamp failed: %s", e)
-
-    def _read_ts(
-        self,
-    ):
-        try:
-            with open(self.timestamp_path) as f:
-                ts_val = float(f.read().strip())
-                return datetime.datetime.fromtimestamp(ts_val)
-        except Exception as e:
-            logger.warning("Reading timestamp failed: %s", e)
-            return None
-
-    def pop(self):
-        try:
-            return json.loads(self.queue.get(block=False))
-        except Empty:
-            return None
-
-    def pop_all(self):
-        items = []
-        item = self.pop()
-        while not self.stopping and item:
-            items.append(item)
-            item = self.pop()
-        return items
-
-    def queue_total(self):
-        return self.queue.total
-
-
 class EstatesAPI:
     def __init__(
         self,
-        reaction_db_path,
-        working_dir,
-        input_query_params=None,
+        reactions_db,
+        estate_reader,
     ):
-        reaction_db_path = pathlib.Path(reaction_db_path)
-        reaction_db_path.parent.mkdir(exist_ok=True, parents=True)
+        self.rdb = reactions_db
+        self.estate_reader = estate_reader
 
-        self.db = pickledb.load(reaction_db_path, auto_dump=True)
-        self.working_dir = pathlib.Path(working_dir)
-        self.working_dir.mkdir(exist_ok=True, parents=True)
+    def _append_reactions(self, df):
+        df["reaction"] = None
+        reactions = self.rdb.read_all()
+        rdf = pd.DataFrame(reactions)
+        estates_reactions = {
+            k: _user_reactions_text_from_group(x)
+            for k, x in rdf.groupby("estate_id")[["username", "reaction"]]
+        }
 
-        if input_query_params is None:
-            input_query_params = assets.read_default_sreality_query()
-        self.input_query_params = input_query_params
-        self.db_lock = Lock()
-
-    def read_latest(self, date_from=None, images=True):
-        df = er.read_estates(
-            self.input_query_params,
-            younger_than=date_from,
-            working_dir=self.working_dir,
-            images=images,
-        )
-
-        df["state_seen"] = None
-
-        with self.db_lock:
-            reactions_ids = self.db.getall()
-            reactions = [(uri, self.db.get(uri)) for uri in reactions_ids]
-
-        reactions = [(uri, r) for uri, r in reactions if r]
-        for uri, r in reactions:
-            estate_id = sreality.parse_estate_id_from_uri(uri)
+        for estate_id, reaction in estates_reactions.items():
             if estate_id in df.index:
-                value = "/".join([f"{k}:{v}" for k, v in r.items()])
-                df.loc[estate_id, "state_seen"] = value
+                df.loc[estate_id, "reaction"] = reaction
+        return df
+
+    def read(self, date_from=None):
+        df = self.estate_reader.read(
+            younger_than=date_from,
+        )
+        df = self._append_reactions(df)
 
         return df
 
-    def write_reaction(self, estate_uri, user, reaction):
-        link_id = uri_to_id(estate_uri)
-        with self.db_lock:
-            record = self.db.get(link_id) or {}
-
-        record[user] = reaction
-        with self.db_lock:
-            self.db.set(link_id, record)
-
-    def read_reactions(self, estate_uri):
-        link_id = uri_to_id(estate_uri)
-        with self.db_lock:
-            return self.db.get(link_id)
+    def read_estate_reactions(self, estate_uri):
+        estate_id = sreality.parse_estate_id_from_uri(estate_uri)
+        return self.db.read_by_estate(estate_id)
 
 
 def uri_to_id(uri):
@@ -183,3 +61,8 @@ def uri_to_id(uri):
         url_obj = urllib.parse.urlparse(uri)
 
     return f"{url_obj.hostname}{url_obj.path}"
+
+
+def _user_reactions_text_from_group(x):
+    user_reactions = (f"{u}:{r}" for u, r in zip(x["username"], x["reaction"]))
+    return ",".join(user_reactions)

@@ -24,52 +24,56 @@ pip install -f requirements.txt
 
 ## Example
 
-### Script
+**Run Watcher**
 
-Setup API:
 ```python
-estates_api = api.EstatesAPI('<path to db>',"<payloads_dir>")
-```
+reactions_db = db.ReactionsDb('<path-where-telegram-reactions-are-stored>')
+estate_reader = er.EstateReader('<path-to-raw-estates-storage>')
+estates_api = api.EstatesAPI(reactions_db,estate_reader)
 
-Setup watcher and wait till it syncs:
-```python
+    
+timestamper = db.TimestampPersitor('<path-to-wacher-metadata>')
+queue = db.DiscoveredQueue('<path-to-watcher-discovery-queue>')
 
-# filter is provided in the form of a function that reads dataset
+# example advanced filter allowing filtering on custom fields
 def filter_df(df):
-    df = df[df["price"] < 4500000]
-    df = df[df["commute_min"] < 90]
+    df = df[(df['closest_station_km'] < 30) & (df['closest_station_name'] == 'Praha')]
     df = df[df["Plocha pozemku"] > 500]
     df = df[(df["Stavba"]!="Dřevostavba") &  (df["Stavba"]!="Montovaná")]
-    df = df[df["state_score"]>4]
-    df = df[df["state_seen"].isnull()] # not previously seen
+    df = df[df["reaction"].isnull()] # not previously seen
 
     return df
 
-estates_watcher = api.EstateWatcher(
+estates_watcher = watcher.EstateWatcher(
     estates_api,
+    timestamper,
+    queue,
     filter_fn = filter_df,
+    interval_minutes = args.interval
 )
+
 estates_watcher.sync()
-```
-
-Create bot:
-```python
-bot_token = "<TOKEN from telegram>"
-params = bot.Param(
-    bot_token,
-    estates_api,
-    estates_watcher
-)
-telegram_bot = bot.create_bot(params)
-```
-
-Run watcher + telegram bot:
-```python
 estates_watcher.watch()
+```
+
+
+**Run Bot**
+Can be in a separate process to watcher
+```python
+reactions_db = db.ReactionsDb('<same-path-to-reactions>')
+queue = db.DiscoveredQueue('<same-path-to-queue>')
+   
+params = bot.Param(
+    BOT_TOKEN_TELEGRAM, # you need to getit from telegram Father bot
+    reactions_db,
+    queue,
+    assets.load_reactions_map(),
+)
+
+telegram_bot = bot.create_bot(params)
 telegram_bot.run_polling()
 ```
-
-### Notebook
+<!-- ### Notebook
 See [baraky.md] which
 
 - queries sreality according to input parameters
@@ -77,7 +81,7 @@ See [baraky.md] which
 - calculates commute time (based on manually inserted time as idos is infamously hard to work with)
 - scores the results according to price, commute time and technical state
 - prints/plots results
-
+ -->
 
 
 ## Config
@@ -85,7 +89,7 @@ See [baraky.md] which
 The folder assets has these files:
 
 - estate_score_map.json - maps technical state of the estate to a number
-- stations.json - a list of station that we picked to live nearby (as we wish to commute by train)
+- stations.json - a list of station that we picked to live nearby (as we wish to commute by train) based on [this](https://provoz.spravazeleznic.cz/PORTAL/Show.aspx?path=/Data/Mapy/linky_dalkove_dopravy.pdf)
 - default_sreality_query.json - query that's used to construct query
 - reactions.json - mapping between categorical score and it's icon in telegram
 
