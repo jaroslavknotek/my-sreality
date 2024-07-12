@@ -47,11 +47,11 @@ class EstateWatcher:
         t = Thread(target=self._worker, daemon=True)
         t.start()
 
-    def sync(self):
+    def sync(self,force = False):
         try:
             now = datetime.now()
             last_ts, can_run = self._can_run(now)
-            if can_run:
+            if can_run or force:
                 logger.info("Start reading df at %s, last ts:(%s)", now, last_ts)
                 df = self.estates_api.read(date_from=last_ts)
 

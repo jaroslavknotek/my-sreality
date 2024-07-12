@@ -45,27 +45,46 @@ df = estates_api.read()
 ```
 
 ```python
-datetime.fromtimestamp(1720110529.160617)
-```
-
-```python
 import mysreality.visualization as visu
 
-def filter_df(df):
-    df = df[df["price"] < 4500000]
+def is_cheap(df):
+    filter_ = df["price"] < 4500000
     is_near_external_station = (df['closest_station_km'] < 15) & (df['closest_station_name'] != 'Praha')
     is_near_prague = (df['closest_station_km'] < 30) & (df['closest_station_name'] == 'Praha')
-    df = df[is_near_external_station | is_near_prague]
-    df = df[df["Plocha pozemku"] > 500]
-    df = df[(df["Stavba"]!="Dřevostavba") &  (df["Stavba"]!="Montovaná")]
-    df = df[df["state_score"]>4]
-    df = df[df["reaction"].isnull()] # not previously seen
+    filter_ &= is_near_external_station | is_near_prague
+    filter_ &= df["Plocha pozemku"] > 500
+    filter_ &= (df["Stavba"]!="Dřevostavba") &  (df["Stavba"]!="Montovaná")
+    filter_ &= df["state_score"]>4
+    return filter_
 
-    return df
-
-filter_df(df)
+def is_close(df):
+    filter_ = df["price"] < 9_000_000
+    filter_ &= df['distance_to_base_km'] < 15
+    return filter_
 ```
 
 ```python
+import pandas as pd
+pd.set_option("max_colwidth", None)
 
+def final_filter(df):
+    df['is_cheap'] = is_cheap(df)
+    df['is_close'] = is_close(df)
+    df = df[(df['is_cheap']) | (df['is_close'])]
+    return df[df['reaction'].isnull()]
+
+final_filter(df)[["Celková cena","price", "link","commute_min"]]
+```
+
+```python
+import geopy
+import mysreality.assets as assets
+
+stations = assets.load_stations()
+praha_gps = stations['Praha']['gps']
+
+{
+    k:geopy.distance.geodesic(praha_gps,v['gps']).km 
+    for k,v in stations.items()
+}
 ```

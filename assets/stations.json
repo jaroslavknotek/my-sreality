@@ -1,5 +1,6 @@
 {
     "Praha": {"gps": [50.0875, 14.421389], "trip_base_min": 0},
+    "Řež":{"gps":[50.173818, 14.375154],"trip_base_min":37},
     "Beroun": {"gps": [49.964167, 14.073889], "trip_base_min": 40},
     "Stříbro": {"gps": [49.7529403, 13.0040925], "trip_base_min": 117},
     "Plzeň": {"gps": [49.7477831, 13.3783489], "trip_base_min": 87},
